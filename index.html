@@ -716,6 +716,7 @@ function toggleSharedMode(){
     addOutputRow();
     addOutputRow();
   }
+  if (on) ensureOutputListeners();
 }
 
 function addOutputRow(){
@@ -879,15 +880,20 @@ function renderOutputRows(){
     list.appendChild(div);
   });
 
-  // Attach a SINGLE delegated event listener to the container
-  // (remove old listener first to avoid duplicates)
-  var newList = list.cloneNode(true);
-  list.parentNode.replaceChild(newList, list);
-  newList.addEventListener("input",  handleOutputRowEvent);
-  newList.addEventListener("change", handleOutputRowEvent);
-  newList.addEventListener("click",  handleOutputRowClick);
-
   updateOutputTotals();
+}
+
+// Attach delegated event listeners ONCE to the static parent container
+// This runs only on first call - the static parent never gets re-rendered
+var _outputListenersAttached = false;
+function ensureOutputListeners(){
+  if(_outputListenersAttached) return;
+  var container = document.getElementById("sharedOutputBox");
+  if(!container) return;
+  container.addEventListener("input",  handleOutputRowEvent);
+  container.addEventListener("change", handleOutputRowEvent);
+  container.addEventListener("click",  handleOutputRowClick);
+  _outputListenersAttached = true;
 }
 
 function handleOutputRowEvent(e){
