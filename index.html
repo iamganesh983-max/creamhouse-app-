@@ -266,7 +266,9 @@ body{font-family:'DM Sans',sans-serif;background:#ECEAE5;color:var(--txt);min-he
     </div>
   </div>
   <div class="sl" id="sec_calc">Live calculation</div>
-  <div class="cbox">
+
+  <!-- SINGLE SKU mode: individual calc -->
+  <div id="singleCalcBox" class="cbox">
     <div class="stats">
       <div class="sc"><div class="sc-l">Dealer Price</div><div class="sc-v" id="C_dlr" style="color:var(--blu)">&#8212;</div></div>
       <div class="sc cg"><div class="sc-l">Revenue</div><div class="sc-v" id="C_rev">&#8212;</div></div>
@@ -277,6 +279,21 @@ body{font-family:'DM Sans',sans-serif;background:#ECEAE5;color:var(--txt);min-he
       <div class="sc"><div class="sc-l">Efficiency %</div><div class="sc-v" id="C_eff">&#8212;</div></div>
     </div>
     <div class="alert" id="C_alert"></div>
+  </div>
+
+  <!-- SHARED BATCH mode: combined summary across all products -->
+  <div id="sharedCalcBox" style="display:none" class="cbox">
+    <div class="stats">
+      <div class="sc cg"><div class="sc-l">Total Revenue</div><div class="sc-v" id="SC_rev">&#8212;</div></div>
+      <div class="sc cb"><div class="sc-l">Total Mix Cost</div><div class="sc-v" id="SC_mixC">&#8212;</div></div>
+      <div class="sc cb"><div class="sc-l">Total Pack Cost</div><div class="sc-v" id="SC_packC">&#8212;</div></div>
+      <div class="sc"><div class="sc-l">Gross Profit</div><div class="sc-v" id="SC_gp">&#8212;</div></div>
+      <div class="sc"><div class="sc-l">GM %</div><div class="sc-v" id="SC_gm">&#8212;</div></div>
+      <div class="sc"><div class="sc-l">Efficiency</div><div class="sc-v" id="SC_eff">&#8212;</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--greydk)">
+      Combined across all products in this shared batch
+    </div>
   </div>
   <div class="brow">
     <button class="btn bp" onclick="handleAddClick()">+ Add to Today's List</button>
@@ -709,6 +726,8 @@ function toggleSharedMode(){
   document.getElementById("sharedMixBox").style.display    = on ? "block" : "none";
   document.getElementById("singleSkuBox").style.display     = on ? "none"  : "block";
   document.getElementById("sharedOutputBox").style.display  = on ? "block" : "none";
+  document.getElementById("singleCalcBox").style.display    = on ? "none"  : "block";
+  document.getElementById("sharedCalcBox").style.display    = on ? "block" : "none";
   track.style.background = on ? "#1D9E75" : "#E0DFD9";
   knob.style.left = on ? "23px" : "3px";
 
@@ -716,7 +735,10 @@ function toggleSharedMode(){
     addOutputRow();
     addOutputRow();
   }
-  if (on) ensureOutputListeners();
+  if (on) {
+    ensureOutputListeners();
+    updateSharedCalc();
+  }
 }
 
 function addOutputRow(){
@@ -821,8 +843,8 @@ function renderOutputRows(){
     row1.appendChild(skuWrap); row1.appendChild(flavWrap);
     div.appendChild(row1);
 
-    // Pack / MRP / Boxes / Units row
-    var row2 = document.createElement("div"); row2.className = "g4";
+    // Pack + MRP row
+    var row2 = document.createElement("div"); row2.className = "g2";
 
     // Pack ml input + datalist
     var mlWrap = document.createElement("div"); mlWrap.className="f";
@@ -874,8 +896,13 @@ function renderOutputRows(){
     uWrap.appendChild(uLbl); uWrap.appendChild(uInp);
 
     row2.appendChild(mlWrap); row2.appendChild(mrpWrap);
-    row2.appendChild(bxWrap); row2.appendChild(pbWrap); row2.appendChild(uWrap);
     div.appendChild(row2);
+
+    // Boxes / Nos per Box / Units row (g3 — all visible, auto-calc clear)
+    var row3 = document.createElement("div"); row3.className = "g3";
+    row3.style.marginTop = "8px";
+    row3.appendChild(bxWrap); row3.appendChild(pbWrap); row3.appendChild(uWrap);
+    div.appendChild(row3);
 
     list.appendChild(div);
   });
@@ -931,6 +958,71 @@ function updateOutputTotals(){
     } else {
       effEl.textContent = "—"; effEl.style.color = "";
     }
+  }
+  updateSharedCalc();
+}
+
+function updateSharedCalc(){
+  var mtype    = sv("P_mtype");
+  var totalMix = fv("P_sharedMix");
+  var rate     = mtype==="Premium" ? PREM : REG;
+
+  var totRev=0, totMixC=0, totPackC=0;
+
+  sharedOutputRows.forEach(function(r){
+    var ml    = parseFloat(r.ml)||0;
+    var mrp   = parseFloat(r.mrp)||0;
+    var units = parseFloat(r.units)||0;
+    if(!ml || !mrp || !units) return;
+
+    var totalOut = sharedOutputRows.reduce(function(s,x){
+      return s+((parseFloat(x.ml)||0)*(parseFloat(x.units)||0));
+    },0);
+    var rowOut   = ml*units;
+    var allocMix = totalOut>0 ? totalMix*(rowOut/totalOut) : 0;
+
+    var dm    = mrp<=15 ? 0.30 : 0.40;
+    var dlrP  = mrp*(1-dm);
+    var rev   = units*dlrP;
+    var mixC  = allocMix*1000*rate;
+    var packC = units*pCost(r.stype, ml);
+
+    totRev   += rev;
+    totMixC  += mixC;
+    totPackC += packC;
+  });
+
+  var totGP = totRev - totMixC - totPackC;
+  var totGM = totRev>0 ? (totGP/totRev*100) : 0;
+
+  var el = function(id){ return document.getElementById(id); };
+  var revEl  = el("SC_rev");
+  var mixEl  = el("SC_mixC");
+  var packEl = el("SC_packC");
+  var gpEl   = el("SC_gp");
+  var gmEl   = el("SC_gm");
+  var sEffEl = el("SC_eff");
+
+  if(revEl)  revEl.textContent  = totRev>0  ? "₹"+inr(totRev)  : "—";
+  if(mixEl)  mixEl.textContent  = totMixC>0 ? "₹"+inr(totMixC) : "—";
+  if(packEl) packEl.textContent = totPackC>0? "₹"+inr(totPackC): "—";
+  if(gpEl){
+    gpEl.textContent = totRev>0 ? "₹"+inr(totGP) : "—";
+    gpEl.style.color = totGP>=0 ? "var(--grn)" : "var(--red)";
+  }
+  if(gmEl){
+    gmEl.textContent = totRev>0 ? totGM.toFixed(1)+"%" : "—";
+    gmEl.style.color = totGM>=30?"var(--grn)":totGM>=20?"var(--gold)":"var(--red)";
+  }
+  if(sEffEl && totalMix>0){
+    var totalOutMl = sharedOutputRows.reduce(function(s,r){
+      return s+((parseFloat(r.ml)||0)*(parseFloat(r.units)||0));
+    },0);
+    var eff = totalOutMl/(totalMix*1000/FILL)*100;
+    sEffEl.textContent = eff.toFixed(0)+"%";
+    sEffEl.style.color = (eff>=80&&eff<=120)?"var(--grn)":(eff>=60&&eff<=150)?"var(--gold)":"var(--red)";
+  } else if(sEffEl){
+    sEffEl.textContent = "—";
   }
 }
 
