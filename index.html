@@ -491,9 +491,15 @@ body{font-family:'DM Sans',sans-serif;background:#ECEAE5;color:var(--txt);min-he
 <div class="panel" id="T_hist">
   <div class="ph">
     <div class="ph-icon" style="background:var(--purlt)">&#128220;</div>
-    <div><div class="ph-title">Production History &#8212; Feb to Jun 2026</div>
-    <div class="ph-desc">460 records loaded &#8901; filter by month, type, mix or search by name</div></div>
+    <div><div class="ph-title">Production History</div>
+    <div class="ph-desc" id="H_desc">Feb&#8211;Jun 2026 embedded records + this session&#39;s entries</div></div>
   </div>
+  <!-- History info banner -->
+  <div id="H_infoBanner" style="background:#EBF5FB;border:1.5px solid #85C1E9;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#1A5276;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <span>&#128203; Showing <strong id="H_totalCount">460</strong> embedded records + <strong id="H_sessionCount">0</strong> from this session &nbsp;&middot;&nbsp; New entries save to Google Sheets</span>
+    <a id="H_sheetsLink" href="#" target="_blank" style="background:#1D9E75;color:#fff;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;display:none">&#128203; View full history in Sheets</a>
+  </div>
+
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:14px;background:var(--grey);border-radius:10px;margin-bottom:14px">
     <div class="f" style="flex:1;min-width:100px"><label>Month</label>
       <select id="H_mon" onchange="renderHist()">
@@ -609,7 +615,7 @@ function showTab(name){
   panels.forEach(function(p){p.classList.remove("on");});
   document.getElementById("T_"+name).classList.add("on");
   if(name==="today")updateSummary();
-  if(name==="hist")renderHist();
+  if(name==="hist")refreshHistFromSheets();
 }
 
 // HELPERS
@@ -731,13 +737,29 @@ function updateOutputRow(rowId, field, value){
   row[field] = value;
   if (field === "stype") {
     var defMl = ML_DEF_SHARED[value];
-    if (defMl) row.ml = String(defMl);
+    if (defMl) { row.ml = String(defMl); }
   }
   if (field === "boxes" || field === "perbox") {
     var b = parseFloat(row.boxes)||0, p = parseFloat(row.perbox)||0;
-    if (b>0 && p>0) row.units = String(b*p);
+    if (b>0 && p>0) {
+      row.units = String(b*p);
+      // Update units field in DOM directly (avoid full re-render)
+      var list = document.getElementById("outputRowsList");
+      if(list){
+        var rowDiv = list.querySelector("[data-rowid='"+rowId+"']");
+        if(rowDiv){
+          var uInp = rowDiv.querySelector("[data-field='units']");
+          if(uInp){
+            uInp.value = row.units;
+            uInp.style.background="#D5F5E3";
+            uInp.style.color="#1D9E75";
+            uInp.style.fontWeight="600";
+          }
+        }
+      }
+    }
   }
-  renderOutputRows();
+  updateOutputTotals();
 }
 
 function renderOutputRows(){
@@ -745,54 +767,164 @@ function renderOutputRows(){
   if (!list) return;
   list.innerHTML = "";
 
+  var ML_LIST  = ["50","60","70","100","200","500","700","4000"];
+  var MRP_LIST = ["10","12","15","20","25","30","35","40","45","50","60","70","80","100","130","150","170","180","200","250","1200","1400","2000"];
+  var SKU_LIST = ["Cone","Cup","Bar","Kulfi","Milk Shake","Taco","Bulk","Tub","Box"];
+
   sharedOutputRows.forEach(function(row, idx){
     var div = document.createElement("div");
-    div.style.cssText = "background:#fff;border:1.5px solid var(--greymd);border-radius:10px;padding:12px;margin-bottom:10px;position:relative";
+    div.style.cssText = "background:#fff;border:1.5px solid var(--greymd);border-radius:10px;padding:12px;margin-bottom:10px";
+    div.setAttribute("data-rowid", row.id);
 
-    var skuOptions = ["Cone","Cup","Bar","Kulfi","Milk Shake","Taco","Bulk","Tub","Box"]
-      .map(function(t){ return "<option"+(row.stype===t?" selected":"")+">"+t+"</option>"; }).join("");
-    var mlDataOpts  = ["50","60","70","100","200","500","700","4000"]
-      .map(function(m){ return "<option value='"+m+"'>"; }).join("");
-    var mrpDataOpts = ["10","12","15","20","25","30","35","40","45","50","60","70","80","100","130","150","170","180","200","250","1200","1400","2000"]
-      .map(function(m){ return "<option value='"+m+"'>"; }).join("");
+    // Header row
+    var hdr = document.createElement("div");
+    hdr.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px";
+    hdr.innerHTML = "<span style='font-size:11px;font-weight:700;color:var(--greydk);text-transform:uppercase;letter-spacing:.05em'>Product "+(idx+1)+"</span>";
+    if(sharedOutputRows.length > 2){
+      var rmBtn = document.createElement("button");
+      rmBtn.type = "button";
+      rmBtn.textContent = "✕ Remove";
+      rmBtn.style.cssText = "background:none;border:none;color:#C0392B;font-size:13px;cursor:pointer;padding:2px 6px";
+      rmBtn.setAttribute("data-action","remove");
+      hdr.appendChild(rmBtn);
+    }
+    div.appendChild(hdr);
 
-    div.innerHTML =
-      "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>"+
-        "<span style='font-size:11px;font-weight:700;color:var(--greydk);text-transform:uppercase;letter-spacing:.05em'>Product "+(idx+1)+"</span>"+
-        (sharedOutputRows.length>2 ? "<button type='button' onclick='removeOutputRow("+row.id+")' style='background:none;border:none;color:var(--red);font-size:13px;cursor:pointer;padding:2px 6px'>&#10005; Remove</button>" : "")+
-      "</div>"+
-      "<div class='g2' style='margin-bottom:8px'>"+
-        "<div class='f'><label>SKU Type *</label><select onchange=\"updateOutputRow("+row.id+",'stype',this.value)\">"+
-          "<option value=''>&mdash; select &mdash;</option>"+skuOptions+"</select></div>"+
-        "<div class='f'><label>Flavour / Name *</label><input type='text' value='"+(row.name||"").replace(/'/g,"&#39;")+"' placeholder='e.g. Vanilla' oninput=\"updateOutputRow("+row.id+",'name',this.value)\"></div>"+
-      "</div>"+
-      "<div class='g4'>"+
-        "<div class='f'><label>Pack (ml) *</label><input type='number' list='ml_opts_"+row.id+"' value='"+(row.ml||"")+"' placeholder='e.g. 50' oninput=\"updateOutputRow("+row.id+",'ml',this.value)\"><datalist id='ml_opts_"+row.id+"'>"+mlDataOpts+"</datalist></div>"+
-        "<div class='f'><label>MRP (&#8377;) *</label><input type='number' list='mrp_opts_"+row.id+"' value='"+(row.mrp||"")+"' placeholder='e.g. 40' oninput=\"updateOutputRow("+row.id+",'mrp',this.value)\"><datalist id='mrp_opts_"+row.id+"'>"+mrpDataOpts+"</datalist></div>"+
-        "<div class='f'><label>Boxes</label><input type='number' value='"+(row.boxes||"")+"' placeholder='0' oninput=\"updateOutputRow("+row.id+",'boxes',this.value)\"></div>"+
-        "<div class='f'><label>Units *</label><input type='number' value='"+(row.units||"")+"' placeholder='0' style='"+(row.boxes&&row.perbox?"background:#D5F5E3;color:#1D9E75;font-weight:600":"")+"' oninput=\"updateOutputRow("+row.id+",'units',this.value)\"></div>"+
-      "</div>";
+    // SKU type + Flavour row
+    var row1 = document.createElement("div");
+    row1.className = "g2";
+    row1.style.marginBottom = "8px";
+
+    // SKU select
+    var skuWrap = document.createElement("div"); skuWrap.className = "f";
+    var skuLbl  = document.createElement("label"); skuLbl.textContent = "SKU Type *";
+    var skuSel  = document.createElement("select");
+    skuSel.setAttribute("data-field","stype");
+    var blankOpt = document.createElement("option"); blankOpt.value=""; blankOpt.textContent="— select —";
+    skuSel.appendChild(blankOpt);
+    SKU_LIST.forEach(function(t){
+      var o = document.createElement("option"); o.value=t; o.textContent=t;
+      if(row.stype===t) o.selected=true;
+      skuSel.appendChild(o);
+    });
+    skuWrap.appendChild(skuLbl); skuWrap.appendChild(skuSel);
+
+    // Flavour input
+    var flavWrap = document.createElement("div"); flavWrap.className = "f";
+    var flavLbl  = document.createElement("label"); flavLbl.textContent = "Flavour / Name *";
+    var flavInp  = document.createElement("input");
+    flavInp.type="text"; flavInp.value=row.name||""; flavInp.placeholder="e.g. Vanilla";
+    flavInp.setAttribute("data-field","name");
+    flavWrap.appendChild(flavLbl); flavWrap.appendChild(flavInp);
+
+    row1.appendChild(skuWrap); row1.appendChild(flavWrap);
+    div.appendChild(row1);
+
+    // Pack / MRP / Boxes / Units row
+    var row2 = document.createElement("div"); row2.className = "g4";
+
+    // Pack ml input + datalist
+    var mlWrap = document.createElement("div"); mlWrap.className="f";
+    var mlLbl  = document.createElement("label"); mlLbl.textContent="Pack (ml) *";
+    var mlInp  = document.createElement("input");
+    mlInp.type="number"; mlInp.value=row.ml||""; mlInp.placeholder="e.g. 50"; mlInp.min="0";
+    mlInp.setAttribute("list","ml_opts_"+row.id);
+    mlInp.setAttribute("data-field","ml");
+    var mlDl = document.createElement("datalist"); mlDl.id="ml_opts_"+row.id;
+    ML_LIST.forEach(function(v){ var o=document.createElement("option");o.value=v;mlDl.appendChild(o); });
+    mlWrap.appendChild(mlLbl); mlWrap.appendChild(mlInp); mlWrap.appendChild(mlDl);
+
+    // MRP input + datalist
+    var mrpWrap = document.createElement("div"); mrpWrap.className="f";
+    var mrpLbl  = document.createElement("label"); mrpLbl.innerHTML="MRP (&#8377;) *";
+    var mrpInp  = document.createElement("input");
+    mrpInp.type="number"; mrpInp.value=row.mrp||""; mrpInp.placeholder="e.g. 40"; mrpInp.min="0";
+    mrpInp.setAttribute("list","mrp_opts_"+row.id);
+    mrpInp.setAttribute("data-field","mrp");
+    var mrpDl = document.createElement("datalist"); mrpDl.id="mrp_opts_"+row.id;
+    MRP_LIST.forEach(function(v){ var o=document.createElement("option");o.value=v;mrpDl.appendChild(o); });
+    mrpWrap.appendChild(mrpLbl); mrpWrap.appendChild(mrpInp); mrpWrap.appendChild(mrpDl);
+
+    // Boxes input
+    var bxWrap = document.createElement("div"); bxWrap.className="f";
+    var bxLbl  = document.createElement("label"); bxLbl.textContent="No. of Boxes";
+    var bxInp  = document.createElement("input");
+    bxInp.type="number"; bxInp.value=row.boxes||""; bxInp.placeholder="0"; bxInp.min="0";
+    bxInp.setAttribute("data-field","boxes");
+    bxWrap.appendChild(bxLbl); bxWrap.appendChild(bxInp);
+
+    // Per box input
+    var pbWrap = document.createElement("div"); pbWrap.className="f";
+    var pbLbl  = document.createElement("label"); pbLbl.textContent="Nos per Box";
+    var pbInp  = document.createElement("input");
+    pbInp.type="number"; pbInp.value=row.perbox||""; pbInp.placeholder="0"; pbInp.min="0";
+    pbInp.setAttribute("data-field","perbox");
+    pbWrap.appendChild(pbLbl); pbWrap.appendChild(pbInp);
+
+    // Units input
+    var uWrap = document.createElement("div"); uWrap.className="f";
+    var uLbl  = document.createElement("label"); uLbl.textContent="Units Produced *";
+    var uInp  = document.createElement("input");
+    uInp.type="number"; uInp.value=row.units||""; uInp.placeholder="0"; uInp.min="0";
+    uInp.setAttribute("data-field","units");
+    if(row.units && parseFloat(row.units)>0){
+      uInp.style.background="#D5F5E3"; uInp.style.color="#1D9E75"; uInp.style.fontWeight="600";
+    }
+    uWrap.appendChild(uLbl); uWrap.appendChild(uInp);
+
+    row2.appendChild(mlWrap); row2.appendChild(mrpWrap);
+    row2.appendChild(bxWrap); row2.appendChild(pbWrap); row2.appendChild(uWrap);
+    div.appendChild(row2);
+
     list.appendChild(div);
   });
 
-  // Update totals
+  // Attach a SINGLE delegated event listener to the container
+  // (remove old listener first to avoid duplicates)
+  var newList = list.cloneNode(true);
+  list.parentNode.replaceChild(newList, list);
+  newList.addEventListener("input",  handleOutputRowEvent);
+  newList.addEventListener("change", handleOutputRowEvent);
+  newList.addEventListener("click",  handleOutputRowClick);
+
+  updateOutputTotals();
+}
+
+function handleOutputRowEvent(e){
+  var el = e.target;
+  var field = el.getAttribute("data-field");
+  if(!field) return;
+  var rowDiv = el.closest("[data-rowid]");
+  if(!rowDiv) return;
+  var rowId = parseInt(rowDiv.getAttribute("data-rowid"));
+  updateOutputRow(rowId, field, el.value);
+}
+
+function handleOutputRowClick(e){
+  if(e.target.getAttribute("data-action")==="remove"){
+    var rowDiv = e.target.closest("[data-rowid]");
+    if(rowDiv) removeOutputRow(parseInt(rowDiv.getAttribute("data-rowid")));
+  }
+}
+
+function updateOutputTotals(){
   var totalMix = fv("P_sharedMix");
   var totalOut = sharedOutputRows.reduce(function(sum,r){
-    var ml = parseFloat(r.ml)||0, u = parseFloat(r.units)||0;
-    return sum + (ml*u);
+    return sum + ((parseFloat(r.ml)||0)*(parseFloat(r.units)||0));
   }, 0);
-  document.getElementById("OR_totalMix").textContent = totalMix.toFixed(2)+" kg";
-  document.getElementById("OR_totalOut").textContent = inr(totalOut)+" ml";
-
+  var tmEl = document.getElementById("OR_totalMix");
+  var toEl = document.getElementById("OR_totalOut");
   var effEl = document.getElementById("OR_eff");
-  if (totalMix>0 && totalOut>0){
-    var expectedOut = totalMix*1000/FILL;
-    var eff = totalOut/expectedOut*100;
-    effEl.textContent = eff.toFixed(0)+"%";
-    effEl.style.color = (eff>=80&&eff<=120) ? "var(--grn)" : (eff>=60&&eff<=150) ? "var(--gold)" : "var(--red)";
-  } else {
-    effEl.textContent = "—";
-    effEl.style.color = "";
+  if(tmEl) tmEl.textContent = totalMix.toFixed(2)+" kg";
+  if(toEl) toEl.textContent = inr(totalOut)+" ml";
+  if(effEl){
+    if(totalMix>0 && totalOut>0){
+      var eff = totalOut/(totalMix*1000/FILL)*100;
+      effEl.textContent = eff.toFixed(0)+"%";
+      effEl.style.color = (eff>=80&&eff<=120)?"var(--grn)":(eff>=60&&eff<=150)?"var(--gold)":"var(--red)";
+    } else {
+      effEl.textContent = "—"; effEl.style.color = "";
+    }
   }
 }
 
@@ -1307,17 +1439,77 @@ function updateSummary(){
 }
 
 // ── HISTORY ───────────────────────────────────────────────────────
+// Live data fetched from Sheets (replaces embedded HIST when available)
+var LIVE_DATA = null;
+
 function getFiltered(){
   var mon=parseInt(document.getElementById("H_mon").value)||0;
   var type=sv("H_type"),mix=sv("H_mix");
   var srch=document.getElementById("H_srch").value.toLowerCase();
-  return HIST.filter(function(r){
+
+  // Use live Sheets data if available, otherwise merge embedded HIST + session prodRows
+  var source = LIVE_DATA || buildMergedHistory();
+
+  return source.filter(function(r){
     if(mon&&r.monthNum!==mon)return false;
     if(type&&r.type!==type)return false;
     if(mix&&r.mixType!==mix)return false;
     if(srch&&r.name.toLowerCase().indexOf(srch)<0&&r.batch.toLowerCase().indexOf(srch)<0)return false;
     return true;
   });
+}
+
+function getMonthNum(dateStr){
+  var d=String(dateStr||"").toLowerCase();
+  var m={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  for(var k in m){if(d.indexOf(k)>=0)return m[k];}
+  return 0;
+}
+
+function buildMergedHistory(){
+  // Convert today's session prodRows into HIST-compatible format and append
+  var sessionRows = prodRows.map(function(r){
+    return {
+      date:r.date, batch:r.batch, mixType:r.mtype, name:r.name, type:r.type,
+      ml:r.ml, mrp:r.mrp, mix:r.mix, topping:r.top||0, units:r.units,
+      boxes:r.boxes||0, perbox:r.perbox||0, dlrP:r.dlrP,
+      rev:r.rev, mixC:r.mixC, pC:r.pC, topC:r.topC||0,
+      gp:r.gp, gm:r.gm, eff:r.eff||0,
+      expO:r.mix>0?(r.mix*1000/FILL):0,
+      actO:r.units*r.ml,
+      monthNum:getMonthNum(r.date)
+    };
+  });
+  return HIST.concat(sessionRows);
+}
+
+function refreshHistFromSheets(){
+  // Update session count and Sheets link
+  var sessionCount = document.getElementById("H_sessionCount");
+  var totalCount   = document.getElementById("H_totalCount");
+  var sheetsLink   = document.getElementById("H_sheetsLink");
+
+  if(sessionCount) sessionCount.textContent = prodRows.length;
+  if(totalCount)   totalCount.textContent   = HIST.length;
+
+  // Show Sheets link if URL is configured
+  var url = getSheetURL();
+  if(sheetsLink){
+    if(url){
+      // Build a Sheets URL from the Apps Script URL
+      // Apps Script URL format: .../macros/s/ID/exec
+      // Sheet URL format: https://docs.google.com/spreadsheets/ (we just link to sheets home)
+      sheetsLink.style.display = "inline-block";
+      // Try to extract sheet ID if possible, otherwise link to sheets home
+      sheetsLink.href = "https://docs.google.com/spreadsheets/";
+    } else {
+      sheetsLink.style.display = "none";
+    }
+  }
+
+  // Always use embedded HIST + session data (reliable, no CORS issues)
+  LIVE_DATA = null;
+  renderHist();
 }
 
 function resetHist(){
@@ -1467,7 +1659,7 @@ function testConnection(){
       if(data.success){
         updateSyncStatus("connected");
         cs.style.background="#E9F7EF"; cs.style.color="#0B5345";
-        cs.textContent="&#10003; Connected! Sheet: "+data.sheets+" — Data will now save directly to Google Sheets.";
+        cs.textContent="&#10003; Connected! Sheet: "+(data.sheetName||data.sheets||"unknown")+" — Data will now save directly to Google Sheets.";
         document.getElementById("SETUP_BANNER").style.display="none";
         toast("Connected to Google Sheets!","ok");
       } else {
