@@ -1,0 +1,15 @@
+{
+  "name": "Cream House Orders",
+  "short_name": "CH Orders",
+  "description": "Cream House dealer order portal",
+  "start_url": "./dealer.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ECEAE5",
+  "theme_color": "#C0392B",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
