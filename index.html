@@ -768,13 +768,28 @@ function toggleSharedMode(){
   document.getElementById("singleCalcBox").style.display   = on ? "none"  : "block";
   document.getElementById("sharedCalcBox").style.display   = on ? "block" : "none";
 
-  if (on && sharedOutputRows.length === 0) {
-    addOutputRow();
-    addOutputRow();
-  }
   if (on) {
+    // Switching TO shared mode — clear single-SKU fields to avoid confusion
+    ["P_name","P_mix","P_units","P_boxes","P_perbox",
+     "P_tname1","P_tkg1","P_tval1",
+     "P_tname2","P_tkg2","P_tval2",
+     "P_tname3","P_tkg3","P_tval3"].forEach(function(id){
+      document.getElementById(id).value = "";
+    });
+    ["P_ml","P_mrp","P_stype"].forEach(function(id){
+      document.getElementById(id).value = "";
+    });
+    var cal=document.getElementById("C_alert"); if(cal) cal.style.display="none";
+    if (sharedOutputRows.length === 0) {
+      addOutputRow();
+      addOutputRow();
+    }
     ensureOutputListeners();
     updateSharedCalc();
+  } else {
+    // Switching BACK to single mode — clear shared fields
+    document.getElementById("P_sharedMix").value = "";
+    sharedOutputRows = [];
   }
 }
 
@@ -1116,6 +1131,15 @@ function addSharedBatchRows(){
 
 function clearSharedBatchForm(){
   document.getElementById("P_sharedMix").value = "";
+  // Clear toppings (shared between modes)
+  ["P_tname1","P_tkg1","P_tval1",
+   "P_tname2","P_tkg2","P_tval2",
+   "P_tname3","P_tkg3","P_tval3"].forEach(function(id){
+    document.getElementById(id).value = "";
+  });
+  var tcEl=document.getElementById("C_topcost"); if(tcEl) tcEl.textContent="₹0";
+  var tkEl=document.getElementById("C_topkg");   if(tkEl) tkEl.textContent="0.000 kg";
+  // Reset shared output rows
   sharedOutputRows = [];
   addOutputRow();
   addOutputRow();
