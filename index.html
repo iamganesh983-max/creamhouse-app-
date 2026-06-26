@@ -45,8 +45,9 @@ body{font-family:-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
   box-shadow:0 4px 20px rgba(232,23,74,.4);
 }
 .brand{display:flex;align-items:center;gap:12px}
-.logo-img{width:40px;height:40px;border-radius:50%;object-fit:cover;
-  border:2.5px solid rgba(255,255,255,.5);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.logo-img{width:46px;height:46px;border-radius:50%;object-fit:cover;
+  border:3px solid #fff;
+  box-shadow:0 0 0 3px rgba(232,23,74,.6), 0 4px 14px rgba(0,0,0,.3)}
 .bname{font-size:17px;font-weight:800;color:#fff;letter-spacing:-.02em}
 .bsub{font-size:10.5px;color:rgba(255,255,255,.75);font-weight:600}
 .bdate{font-size:11px;color:rgba(255,255,255,.85);font-weight:600;
@@ -55,19 +56,31 @@ body{font-family:-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
 /* ── TABS ──────────────────────────────────────────────────────── */
 .tabs{
   background:linear-gradient(135deg,var(--brand) 0%,var(--brand-dk) 100%);
-  padding:0 16px;display:flex;gap:2px;overflow-x:auto;
+  padding:0 14px;display:flex;gap:4px;overflow-x:auto;
   scrollbar-width:none;border-bottom:none;
+  align-items:flex-end;min-height:52px;
 }
 .tabs::-webkit-scrollbar{display:none}
-.tab{border:none;cursor:pointer;padding:11px 15px 15px;
+.tab{border:none;cursor:pointer;padding:10px 16px;
   font-family:inherit;font-size:12.5px;font-weight:700;
-  color:rgba(255,255,255,.6);background:transparent;
-  border-radius:12px 12px 0 0;transition:all .2s;white-space:nowrap;
-  position:relative;}
-.tab.on{background:rgba(255,255,255,.15);color:#fff;}
-.tab.on::after{content:'';position:absolute;bottom:0;left:10px;right:10px;
-  height:3px;background:#fff;border-radius:3px 3px 0 0;}
-.tab:hover:not(.on){color:rgba(255,255,255,.85);background:rgba(255,255,255,.08)}
+  color:rgba(255,255,255,.75);
+  background:rgba(0,0,0,.15);
+  margin:8px 3px 0;
+  border-radius:10px 10px 0 0;
+  transition:all .2s;white-space:nowrap;position:relative;
+  border:1.5px solid rgba(255,255,255,.15);border-bottom:none;}
+.tab.on{
+  background:#fff;
+  color:var(--brand);
+  border-color:#fff;
+  font-weight:800;
+}
+.tab.on::after{display:none;}
+.tab:hover:not(.on){
+  background:rgba(0,0,0,.25);
+  color:#fff;
+  border-color:rgba(255,255,255,.3);
+}
 
 /* ── MAIN ──────────────────────────────────────────────────────── */
 .main{padding:22px 18px 48px;max-width:720px;margin:0 auto}
