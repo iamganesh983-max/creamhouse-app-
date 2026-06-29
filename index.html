@@ -1311,7 +1311,13 @@ function addSharedBatchRows(){
   var url = getSheetURL();
   if(url && newRows.length){
     sendToSheets("production", newRows, function(ok){
-      updateSyncStatus(ok?"connected":"disconnected");
+      if(ok){
+        updateSyncStatus("connected");
+        toast("&#10003; "+addedCount+" rows saved to Google Sheets","ok");
+      } else {
+        updateSyncStatus("disconnected");
+        toast("Sheets sync failed — entries saved locally","wrn");
+      }
     });
   }
 }
@@ -1394,12 +1400,18 @@ function addProd(){
                  dlrP:dlrP,rev:rev,mixC:mixC,pC:pC,gp:gp,gm:gm,eff:eff});
   renderProdTable();clearProdForm();
   toast("Added: "+name+" ("+units.toLocaleString()+" units  \u20B9"+inr(rev)+")","ok");
-  // Send ONLY this new row to Sheets immediately (not all rows — avoids duplicates)
+  // Send ONLY this new row to Sheets immediately
   var newRow = prodRows[prodRows.length-1];
   var url = getSheetURL();
   if(url && newRow){
     sendToSheets("production",[newRow],function(ok){
-      updateSyncStatus(ok?"connected":"disconnected");
+      if(ok){
+        updateSyncStatus("connected");
+        toast("&#10003; Saved to Google Sheets","ok");
+      } else {
+        updateSyncStatus("disconnected");
+        toast("Sheets sync failed — entry is in Today list. Try reconnecting.","wrn");
+      }
     });
   }
 }
@@ -1986,10 +1998,10 @@ function saveSheetURL(){
 function updateSyncStatus(state){
   var el = document.getElementById("SYNC_STATUS");
   if(!el) return;
-  if(state==="connected")     { el.textContent="&#128994; Connected to Sheets"; el.style.background="rgba(29,158,117,.3)"; }
-  else if(state==="sending")  { el.textContent="&#128260; Saving to Sheets..."; el.style.background="rgba(230,126,34,.3)"; }
-  else if(state==="configured"){ el.textContent="&#128309; URL saved - not tested"; el.style.background="rgba(255,255,255,.15)"; }
-  else                        { el.textContent="&#128309; Not connected"; el.style.background="rgba(255,255,255,.1)"; }
+  if(state==="connected")     { el.innerHTML="&#128994; Connected"; el.style.background="rgba(29,158,117,.35)"; }
+  else if(state==="sending")  { el.innerHTML="&#9729; Saving..."; el.style.background="rgba(230,126,34,.35)"; }
+  else if(state==="configured"){ el.innerHTML="&#128309; URL saved"; el.style.background="rgba(255,255,255,.2)"; }
+  else                        { el.innerHTML="&#128309; Not connected"; el.style.background="rgba(255,255,255,.15)"; }
 }
 
 function testConnection(){
@@ -2133,7 +2145,10 @@ function sendToSheets(type, rows, callback){
 // Register service worker for offline app-shell caching
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("./sw.js").catch(function(){});
+    navigator.serviceWorker.register("./sw.js").then(function(reg){
+      // Force check for updates every time app loads
+      reg.update();
+    }).catch(function(){});
   });
 }
 
