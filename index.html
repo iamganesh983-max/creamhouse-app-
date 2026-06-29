@@ -2096,77 +2096,61 @@ function sendToSheets(type, rows, callback){
   if(!url){ callback(false); return; }
   updateSyncStatus("sending");
 
-  // Use a hidden form POST — this is the only method that works
-  // cross-origin with Google Apps Script (no-cors fetch strips the body)
   var payload = JSON.stringify({type: type, rows: rows});
 
-  // Create a hidden form that submits to the Apps Script URL
-  // Apps Script receives it as e.postData.contents
-  var cbName = "gsCallback_" + Date.now();
+  // APPROACH 1: fetch with no-cors (sends data, can't read response)
+  // Apps Script receives this as e.postData.contents
+  fetch(url, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    body: "payload=" + encodeURIComponent(payload)
+  }).then(function(){
+    // no-cors means we can't read response, but data was sent
+    updateSyncStatus("connected");
+    callback(true);
+  }).catch(function(){
+    // fetch failed — try form POST as fallback
+    sendViaForm(url, payload, callback);
+  });
+}
 
-  // Use JSONP via iframe technique — works reliably with Apps Script
+function sendViaForm(url, payload, callback){
+  var cbName = "gsCallback_" + Date.now();
   var form = document.createElement("form");
   form.method = "POST";
   form.action = url;
   form.target = cbName;
   form.style.display = "none";
 
-  var input = document.createElement("input");
-  input.type  = "hidden";
-  input.name  = "payload";
-  input.value = payload;
-  form.appendChild(input);
+  var inp = document.createElement("input");
+  inp.type = "hidden"; inp.name = "payload"; inp.value = payload;
+  form.appendChild(inp);
 
-  // Also send as direct body via a second approach
-  var input2 = document.createElement("input");
-  input2.type  = "hidden";
-  input2.name  = "data";
-  input2.value = payload;
-  form.appendChild(input2);
-
-  // Create hidden iframe to receive the response
   var iframe = document.createElement("iframe");
   iframe.name = cbName;
   iframe.style.display = "none";
 
-  iframe.onload = function(){
-    try{
-      updateSyncStatus("connected");
-      callback(true);
-    }catch(e){ callback(true); } // assume success if we got a response
+  var done = false;
+  function finish(ok){
+    if(done) return; done = true;
+    updateSyncStatus(ok ? "connected" : "disconnected");
+    callback(ok);
     setTimeout(function(){
-      try{ document.body.removeChild(form); document.body.removeChild(iframe); }catch(e){}
-    }, 2000);
-  };
+      try{document.body.removeChild(form);}catch(e){}
+      try{document.body.removeChild(iframe);}catch(e){}
+    }, 3000);
+  }
 
-  iframe.onerror = function(){
-    updateSyncStatus("disconnected");
-    callback(false);
-    setTimeout(function(){
-      try{ document.body.removeChild(form); document.body.removeChild(iframe); }catch(e){}
-    }, 2000);
-  };
-
-  // Timeout fallback — if no response in 10s, assume success (Apps Script is slow sometimes)
-  var timeout = setTimeout(function(){
-    updateSyncStatus("connected");
-    callback(true);
-    try{ document.body.removeChild(form); document.body.removeChild(iframe); }catch(e){}
-  }, 10000);
-
-  iframe.onload = function(){
-    clearTimeout(timeout);
-    updateSyncStatus("connected");
-    callback(true);
-    setTimeout(function(){
-      try{ document.body.removeChild(form); document.body.removeChild(iframe); }catch(e){}
-    }, 2000);
-  };
+  iframe.onload  = function(){ finish(true); };
+  iframe.onerror = function(){ finish(false); };
+  setTimeout(function(){ finish(true); }, 12000); // timeout = assume sent
 
   document.body.appendChild(iframe);
   document.body.appendChild(form);
   form.submit();
 }
+
 
 // On load: restore saved URL
 (function(){
