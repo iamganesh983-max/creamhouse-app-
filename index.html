@@ -1347,7 +1347,7 @@ function addSharedBatchRows(){
     sendToSheets("production", newRows, function(ok){
       if(ok){
         updateSyncStatus("connected");
-        toast("&#10003; "+addedCount+" rows saved to Google Sheets","ok");
+        toast("✓ "+addedCount+" rows saved to Google Sheets","ok");
       } else {
         updateSyncStatus("disconnected");
         toast("Sheets sync failed — entries saved locally","wrn");
@@ -1441,7 +1441,7 @@ function addProd(){
     sendToSheets("production",[newRow],function(ok){
       if(ok){
         updateSyncStatus("connected");
-        toast("&#10003; Saved to Google Sheets","ok");
+        toast("✓ Saved to Google Sheets","ok");
       } else {
         updateSyncStatus("disconnected");
         toast("Sheets sync failed — entry is in Today list. Try reconnecting.","wrn");
@@ -2017,10 +2017,19 @@ function exportHistCSV(){
 var SHEETS_URL_KEY = "creamhouse_sheets_url";
 
 function getSheetURL(){
-  // Try input field first, then localStorage
+  var DEFAULT = "https://script.google.com/macros/s/AKfycbwFdXaegldriUd_mTbligLJn0T3QtAs8KtzacM8ZS7bPwZ0Lg_nY_ClMC5-VBlrCfG8JA/exec";
+  // Check localStorage first for any saved URL
+  var stored = "";
+  try{ stored = localStorage.getItem(SHEETS_URL_KEY)||""; }catch(e){}
+  // If stored URL is old/empty, use DEFAULT
+  if(!stored || stored.length < 50){
+    stored = DEFAULT;
+    try{ localStorage.setItem(SHEETS_URL_KEY, DEFAULT); }catch(e){}
+  }
+  // Also sync the input field so UI is consistent
   var inp = document.getElementById("SHEETS_URL");
-  if(inp && inp.value.trim()) return inp.value.trim();
-  try{ return localStorage.getItem(SHEETS_URL_KEY)||""; }catch(e){ return ""; }
+  if(inp) inp.value = stored;
+  return stored;
 }
 
 function saveSheetURL(){
