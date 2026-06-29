@@ -514,7 +514,7 @@ div[style*="background:#FDFCF8"]{background:var(--card)!important}
     </div>
     <div id="P_totals" style="margin-top:8px;font-size:12px;color:var(--txt2)"></div>
     <div class="brow">
-      <button class="btn bg btn-full" onclick="saveProdCSV()">&#9729; Save to Google Sheets</button>
+      <button class="btn bs" onclick="saveProdCSV()">&#128190; Download CSV backup</button>
       <button class="btn bs" onclick="clearAllProd()">&#128465; Clear all entries</button>
     </div>
   </div>
@@ -1306,6 +1306,14 @@ function addSharedBatchRows(){
   renderProdTable();
   clearSharedBatchForm();
   toast("Added "+addedCount+" products from shared batch ("+totalMix.toFixed(1)+"kg mix split proportionally)","ok");
+  // Send only the newly added rows to Sheets
+  var newRows = prodRows.slice(prodRows.length - addedCount);
+  var url = getSheetURL();
+  if(url && newRows.length){
+    sendToSheets("production", newRows, function(ok){
+      updateSyncStatus(ok?"connected":"disconnected");
+    });
+  }
 }
 
 function clearSharedBatchForm(){
@@ -1360,17 +1368,6 @@ function handleAddClick(){
   } else {
     addProd();
   }
-  // Auto-sync to Sheets after every entry if connected
-  autoSyncToSheets();
-}
-
-function autoSyncToSheets(){
-  var url = getSheetURL();
-  if(!url || !prodRows.length) return;
-  // Silent background sync — no toast, no blocking
-  sendToSheets("production", prodRows, function(ok){
-    if(ok) updateSyncStatus("connected");
-  });
 }
 
 function addProd(){
@@ -1397,6 +1394,14 @@ function addProd(){
                  dlrP:dlrP,rev:rev,mixC:mixC,pC:pC,gp:gp,gm:gm,eff:eff});
   renderProdTable();clearProdForm();
   toast("Added: "+name+" ("+units.toLocaleString()+" units  \u20B9"+inr(rev)+")","ok");
+  // Send ONLY this new row to Sheets immediately (not all rows — avoids duplicates)
+  var newRow = prodRows[prodRows.length-1];
+  var url = getSheetURL();
+  if(url && newRow){
+    sendToSheets("production",[newRow],function(ok){
+      updateSyncStatus(ok?"connected":"disconnected");
+    });
+  }
 }
 
 function renderProdTable(){
@@ -1439,21 +1444,9 @@ function clearAllProd(){prodRows.length=0;renderProdTable();}
 
 function saveProdCSV(){
   if(!prodRows.length){toast("No entries to save","wrn");return;}
-  var url=getSheetURL();
-  if(url){
-    sendToSheets("production", prodRows, function(ok){
-      if(ok){
-        toast("Saved to Google Sheets! ("+prodRows.length+" rows)","ok");
-        clearAllProd();
-      } else {
-        toast("Sheets failed - downloading CSV as backup","wrn");
-        downloadProdCSV();
-      }
-    });
-  } else {
-    downloadProdCSV();
-    toast("No Sheets connected - CSV downloaded. Connect Sheets to go direct.","wrn");
-  }
+  // Always download CSV as a backup copy
+  downloadProdCSV();
+  toast("CSV downloaded as backup","ok");
 }
 
 function downloadProdCSV(){
@@ -1528,6 +1521,14 @@ function addBatch(){
   renderBatchTable();
   clearBatch();
   toast("Batch "+id+" added to list","ok");
+  // Auto-sync to Sheets immediately
+  var newBatch = batchRows[batchRows.length-1];
+  var url = getSheetURL();
+  if(url && newBatch){
+    sendToSheets("batch",[newBatch],function(ok){
+      updateSyncStatus(ok?"connected":"disconnected");
+    });
+  }
 }
 
 function renderBatchTable(){
@@ -2023,7 +2024,15 @@ function testConnection(){
       cs.style.background="#E9F7EF"; cs.style.color="#0B5345";
       cs.textContent="&#10003; Script URL looks correct. CORS restriction is normal — saving will still work. Click Save in any tab to test.";
       document.getElementById("SETUP_BANNER").style.display="none";
-      toast("URL saved. Try saving a row to confirm it reaches Sheets.","ok");
+      toast("URL saved. Try saving a row to confirm it reaches Sheets.","ok")
+  // Auto-sync overhead to Sheets immediately
+  var newOH = ohRows[ohRows.length-1];
+  var urlOH = getSheetURL();
+  if(urlOH && newOH){
+    sendToSheets("overhead",[newOH],function(ok){
+      updateSyncStatus(ok?"connected":"disconnected");
+    });
+  };
     });
 }
 
