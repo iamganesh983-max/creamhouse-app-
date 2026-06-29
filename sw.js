@@ -1,25 +1,21 @@
-{
-  "name": "Cream House — Production Tracker",
-  "short_name": "Cream House",
-  "description": "Daily production, batch, overhead entry and sales history for Cream House",
-  "start_url": "./index.html",
-  "scope": "./",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#ECEAE5",
-  "theme_color": "#C0392B",
-  "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
-}
+var CACHE = "ch-v5";
+var FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+
+self.addEventListener("install", function(e){
+  e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(FILES); }));
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", function(e){
+  e.waitUntil(caches.keys().then(function(keys){
+    return Promise.all(keys.filter(function(k){ return k!==CACHE; }).map(function(k){ return caches.delete(k); }));
+  }));
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", function(e){
+  if(e.request.url.indexOf("script.google.com")>=0) return;
+  e.respondWith(caches.match(e.request).then(function(r){
+    return r || fetch(e.request).catch(function(){ return caches.match("./index.html"); });
+  }));
+});
