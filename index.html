@@ -514,7 +514,7 @@ div[style*="background:#FDFCF8"]{background:var(--card)!important}
     </div>
     <div id="P_totals" style="margin-top:8px;font-size:12px;color:var(--txt2)"></div>
     <div class="brow">
-      <button class="btn bg" onclick="saveProdCSV()">&#128190; Download CSV for Excel</button>
+      <button class="btn bg btn-full" onclick="saveProdCSV()">&#9729; Save to Google Sheets</button>
       <button class="btn bs" onclick="clearAllProd()">&#128465; Clear all entries</button>
     </div>
   </div>
@@ -1360,6 +1360,17 @@ function handleAddClick(){
   } else {
     addProd();
   }
+  // Auto-sync to Sheets after every entry if connected
+  autoSyncToSheets();
+}
+
+function autoSyncToSheets(){
+  var url = getSheetURL();
+  if(!url || !prodRows.length) return;
+  // Silent background sync — no toast, no blocking
+  sendToSheets("production", prodRows, function(ok){
+    if(ok) updateSyncStatus("connected");
+  });
 }
 
 function addProd(){
