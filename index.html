@@ -305,6 +305,40 @@ div[style*="background:#FDFCF8"]{background:var(--card)!important}
   <div style="display:flex;align-items:center;gap:10px">
     <div id="SYNC_STATUS" style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.8)">&#128309; Not connected</div>
     <div class="bdate" id="ID_date"></div>
+    <button onclick="openSettings()" title="Settings" style="
+      background:rgba(255,255,255,.2);border:none;cursor:pointer;
+      width:34px;height:34px;border-radius:50%;font-size:16px;
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;transition:background .2s;flex-shrink:0">⚙️</button>
+  </div>
+</div>
+
+<!-- ── SETTINGS OVERLAY ─────────────────────────────────── -->
+<div id="settingsOverlay" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:20px;padding:24px;width:90%;max-width:440px;
+    box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:17px;font-weight:800;color:#1A1714">⚙️ Settings</div>
+      <button onclick="closeSettings()" style="background:#F5F0E8;border:none;
+        border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">×</button>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:#6B6560;text-transform:uppercase;
+      letter-spacing:.04em;margin-bottom:8px">Google Sheets URL</div>
+    <input id="settingsURL" type="url" placeholder="Paste your Apps Script URL here"
+      style="width:100%;padding:12px 14px;border:2px solid #DDD8CE;border-radius:12px;
+      font-size:13px;font-family:inherit;margin-bottom:12px;outline:none">
+    <div style="font-size:11.5px;color:#9B9590;margin-bottom:16px;line-height:1.6">
+      Get this from your Google Apps Script → Deploy → Manage deployments → copy the Web App URL
+    </div>
+    <button onclick="saveSettingsURL()" style="width:100%;background:#E8174A;color:#fff;
+      border:none;border-radius:50px;padding:13px;font-size:14px;font-weight:700;
+      cursor:pointer;font-family:inherit;margin-bottom:10px">Save & Connect</button>
+    <button onclick="clearSettingsURL()" style="width:100%;background:#F5F0E8;color:#6B6560;
+      border:1.5px solid #DDD8CE;border-radius:50px;padding:11px;font-size:13px;
+      font-weight:600;cursor:pointer;font-family:inherit">Clear URL (disconnect)</button>
+    <div id="settingsStatus" style="margin-top:12px;font-size:12.5px;text-align:center;
+      color:#9B9590"></div>
   </div>
 </div>
 
@@ -2127,13 +2161,18 @@ function sendToSheets(type, rows, callback){
 
 // On load: restore saved URL
 (function(){
+  // Always ensure the correct URL is available
+  var DEFAULT_URL = "https://script.google.com/macros/s/AKfycbwFdXaegldriUd_mTbligLJn0T3QtAs8KtzacM8ZS7bPwZ0Lg_nY_ClMC5-VBlrCfG8JA/exec";
   try{
     var saved = localStorage.getItem(SHEETS_URL_KEY)||"";
-    if(saved){
-      document.getElementById("SHEETS_URL").value = saved;
-      document.getElementById("SETUP_BANNER").style.display="none";
-      updateSyncStatus("configured");
+    // If no URL saved, or saved URL is the old one, use the new default
+    if(!saved || saved.indexOf("AKfycbxEB") >= 0){
+      saved = DEFAULT_URL;
+      localStorage.setItem(SHEETS_URL_KEY, DEFAULT_URL);
     }
+    document.getElementById("SHEETS_URL").value = saved;
+    document.getElementById("SETUP_BANNER").style.display="none";
+    updateSyncStatus("configured");
   }catch(e){}
 })();
 
@@ -2143,6 +2182,59 @@ function sendToSheets(type, rows, callback){
 // ══════════════════════════════════════════════════════════════════
 
 // Register service worker for offline app-shell caching
+// ── SETTINGS PANEL ────────────────────────────────────────────────
+function openSettings(){
+  var overlay = document.getElementById("settingsOverlay");
+  var inp     = document.getElementById("settingsURL");
+  overlay.style.display = "flex";
+  // Pre-fill with current URL
+  try{ inp.value = localStorage.getItem("creamhouse_sheets_url") || ""; }catch(e){}
+}
+
+function closeSettings(){
+  document.getElementById("settingsOverlay").style.display = "none";
+}
+
+function saveSettingsURL(){
+  var url = document.getElementById("settingsURL").value.trim();
+  var status = document.getElementById("settingsStatus");
+  if(!url){ status.textContent = "Please paste a URL first"; status.style.color="#E8174A"; return; }
+  if(!url.includes("script.google.com")){
+    status.textContent = "That doesn't look like an Apps Script URL"; 
+    status.style.color="#E8174A"; return;
+  }
+  try{ localStorage.setItem("creamhouse_sheets_url", url); }catch(e){}
+  // Also update the hidden SHEETS_URL input
+  var inp = document.getElementById("SHEETS_URL");
+  if(inp) inp.value = url;
+  // Hide setup banner
+  var banner = document.getElementById("SETUP_BANNER");
+  if(banner) banner.style.display = "none";
+  updateSyncStatus("configured");
+  status.textContent = "✓ URL saved! Enter an entry to test the connection.";
+  status.style.color = "#2D9E6B";
+  // Close after 2 seconds
+  setTimeout(closeSettings, 2000);
+  toast("URL saved — enter a test entry to confirm sync","ok");
+}
+
+function clearSettingsURL(){
+  try{ localStorage.removeItem("creamhouse_sheets_url"); }catch(e){}
+  var inp = document.getElementById("SHEETS_URL");
+  if(inp) inp.value = "";
+  updateSyncStatus("disconnected");
+  var banner = document.getElementById("SETUP_BANNER");
+  if(banner) banner.style.display = "flex";
+  closeSettings();
+  toast("Sheets disconnected","wrn");
+}
+
+// Close settings on overlay background click
+document.addEventListener("click", function(e){
+  var overlay = document.getElementById("settingsOverlay");
+  if(e.target === overlay) closeSettings();
+});
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function(){
     navigator.serviceWorker.register("./sw.js").then(function(reg){
