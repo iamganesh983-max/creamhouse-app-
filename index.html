@@ -2018,19 +2018,12 @@ var SHEETS_URL_KEY = "creamhouse_sheets_url";
 
 function getSheetURL(){
   var DEFAULT = "https://script.google.com/macros/s/AKfycbwFdXaegldriUd_mTbligLJn0T3QtAs8KtzacM8ZS7bPwZ0Lg_nY_ClMC5-VBlrCfG8JA/exec";
-  // Check localStorage first for any saved URL
   var stored = "";
-  try{ stored = localStorage.getItem(SHEETS_URL_KEY)||""; }catch(e){}
-  // If stored URL is old/empty, use DEFAULT
-  if(!stored || stored.length < 50){
-    stored = DEFAULT;
-    try{ localStorage.setItem(SHEETS_URL_KEY, DEFAULT); }catch(e){}
-  }
-  // Also sync the input field so UI is consistent
-  var inp = document.getElementById("SHEETS_URL");
-  if(inp) inp.value = stored;
+  try{ stored = localStorage.getItem("creamhouse_sheets_url")||""; }catch(e){}
+  if(!stored || stored.length < 50){ stored = DEFAULT; }
   return stored;
 }
+
 
 function saveSheetURL(){
   var url = document.getElementById("SHEETS_URL").value.trim();
@@ -2098,43 +2091,21 @@ function sendToSheets(type, rows, callback){
 
   var payload = JSON.stringify({type: type, rows: rows});
 
-  // Use GET request with data as URL parameter
-  // This works because GET requests are never blocked cross-origin
-  // Apps Script doGet receives it via e.parameter.payload
-  var getUrl = url + "?action=save&payload=" + encodeURIComponent(payload);
-
-  // Use an image tag trick - fires a GET request silently, no CORS issues
-  var img = new Image();
-  img.onload = img.onerror = function(){
+  fetch(url, {
+    method:  "POST",
+    mode:    "no-cors",
+    headers: {"Content-Type": "text/plain"},
+    body:    payload
+  })
+  .then(function(){
     updateSyncStatus("connected");
     callback(true);
-  };
-  // Also create a script tag as backup (another reliable GET method)
-  var cbName = "cb_" + Date.now();
-  window[cbName] = function(result){
-    updateSyncStatus("connected");
-    callback(true);
-    delete window[cbName];
-  };
-
-  // Primary: hidden iframe GET (most reliable for Apps Script)
-  var iframe = document.createElement("iframe");
-  iframe.style.display = "none";
-  iframe.src = getUrl;
-  var done = false;
-  iframe.onload = iframe.onerror = function(){
-    if(done) return; done = true;
-    updateSyncStatus("connected");
-    callback(true);
-    setTimeout(function(){ try{document.body.removeChild(iframe);}catch(e){} }, 3000);
-  };
-  setTimeout(function(){
-    if(done) return; done = true;
-    updateSyncStatus("connected");
-    callback(true);
-    try{document.body.removeChild(iframe);}catch(e){}
-  }, 15000);
-  document.body.appendChild(iframe);
+  })
+  .catch(function(err){
+    console.error("Sheets sync error:", err);
+    updateSyncStatus("disconnected");
+    callback(false);
+  });
 }
 
 
