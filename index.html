@@ -2089,45 +2089,48 @@ function sendToSheets(type, rows, callback){
   if(!url){ callback(false); return; }
   updateSyncStatus("sending");
 
-  // Use GET request with payload in URL - this is what works (same as ?action=test)
-  // Google redirects POST but allows GET through, so we use GET
-  var payload = encodeURIComponent(JSON.stringify({type:type, rows:rows}));
-  var getUrl = url + "?action=save&payload=" + payload;
+  // Trim rows to essential fields only to keep URL short
+  var trimmed = rows.map(function(r){
+    if(type === "production") return {
+      date:r.date, batch:r.batch, mtype:r.mtype||r.mixType,
+      name:r.name, type:r.type, ml:r.ml, mrp:r.mrp,
+      mix:Math.round(r.mix*100)/100, units:r.units,
+      dlrP:Math.round(r.dlrP*100)/100,
+      rev:Math.round(r.rev), mixC:Math.round(r.mixC),
+      pC:Math.round(r.pC), gp:Math.round(r.gp),
+      gm:Math.round(r.gm*10)/10, eff:Math.round(r.eff*10)/10,
+      boxes:r.boxes||0, perbox:r.perbox||0
+    };
+    return r;
+  });
 
-  // Load via script tag - works cross-origin, follows redirects, no CORS block
-  var scriptId = "gs_" + Date.now();
-  var script = document.createElement("script");
-  script.id = scriptId;
-  script.src = getUrl + "&callback=gsCallback_" + scriptId;
+  // Send one row at a time to keep URLs short
+  var pending = trimmed.length;
+  if(pending === 0){ callback(true); return; }
 
-  window["gsCallback_" + scriptId] = function(result){
-    delete window["gsCallback_" + scriptId];
-    var el = document.getElementById(scriptId);
-    if(el) el.parentNode.removeChild(el);
-    updateSyncStatus("connected");
-    callback(true);
-  };
+  var allOk = true;
+  trimmed.forEach(function(row, i){
+    setTimeout(function(){
+      var payload = encodeURIComponent(JSON.stringify({type:type, rows:[row]}));
+      var getUrl = url + "?action=save&payload=" + payload;
 
-  // Also load via image tag as parallel attempt (fires GET, ignores response)
-  var img = new Image();
-  img.src = getUrl;
+      var img = new Image();
+      img.onload = img.onerror = function(){
+        pending--;
+        if(pending === 0){
+          updateSyncStatus("connected");
+          callback(true);
+        }
+      };
+      img.src = getUrl;
+    }, i * 500); // stagger by 500ms each
+  });
 
-  var done = false;
-  script.onload = script.onerror = function(){
-    if(done) return; done = true;
-    updateSyncStatus("connected");
-    callback(true);
-    var el = document.getElementById(scriptId);
-    if(el) el.parentNode.removeChild(el);
-  };
-
+  // Fallback timeout
   setTimeout(function(){
-    if(done) return; done = true;
     updateSyncStatus("connected");
     callback(true);
-  }, 8000);
-
-  document.head.appendChild(script);
+  }, (trimmed.length * 500) + 10000);
 }
 
 
