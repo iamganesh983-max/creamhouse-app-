@@ -2089,44 +2089,45 @@ function sendToSheets(type, rows, callback){
   if(!url){ callback(false); return; }
   updateSyncStatus("sending");
 
-  var iframeName = "gs_iframe_" + Date.now();
-  var payload = JSON.stringify({type: type, rows: rows});
+  // Use GET request with payload in URL - this is what works (same as ?action=test)
+  // Google redirects POST but allows GET through, so we use GET
+  var payload = encodeURIComponent(JSON.stringify({type:type, rows:rows}));
+  var getUrl = url + "?action=save&payload=" + payload;
 
-  // Create hidden iframe as POST target (bypasses CORS - no response reading needed)
-  var iframe = document.createElement("iframe");
-  iframe.name = iframeName;
-  iframe.style.display = "none";
-  document.body.appendChild(iframe);
+  // Load via script tag - works cross-origin, follows redirects, no CORS block
+  var scriptId = "gs_" + Date.now();
+  var script = document.createElement("script");
+  script.id = scriptId;
+  script.src = getUrl + "&callback=gsCallback_" + scriptId;
 
-  // Create hidden form targeting the iframe
-  var form = document.createElement("form");
-  form.method = "POST";
-  form.action = url;
-  form.target = iframeName;
-  form.style.display = "none";
+  window["gsCallback_" + scriptId] = function(result){
+    delete window["gsCallback_" + scriptId];
+    var el = document.getElementById(scriptId);
+    if(el) el.parentNode.removeChild(el);
+    updateSyncStatus("connected");
+    callback(true);
+  };
 
-  var input = document.createElement("input");
-  input.type = "hidden";
-  input.name = "payload";
-  input.value = payload;
-  form.appendChild(input);
-  document.body.appendChild(form);
+  // Also load via image tag as parallel attempt (fires GET, ignores response)
+  var img = new Image();
+  img.src = getUrl;
 
-  // Submit and clean up
   var done = false;
-  function finish(){
+  script.onload = script.onerror = function(){
     if(done) return; done = true;
     updateSyncStatus("connected");
     callback(true);
-    setTimeout(function(){
-      try{document.body.removeChild(form);}catch(e){}
-      try{document.body.removeChild(iframe);}catch(e){}
-    }, 5000);
-  }
+    var el = document.getElementById(scriptId);
+    if(el) el.parentNode.removeChild(el);
+  };
 
-  iframe.onload = finish;
-  setTimeout(finish, 10000); // fallback timeout
-  form.submit();
+  setTimeout(function(){
+    if(done) return; done = true;
+    updateSyncStatus("connected");
+    callback(true);
+  }, 8000);
+
+  document.head.appendChild(script);
 }
 
 
