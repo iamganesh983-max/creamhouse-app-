@@ -1505,7 +1505,20 @@ function renderProdTable(){
   tb.innerHTML="";
   prodRows.forEach(function(r,i){
     var gc=r.gm>=30?"gd":r.gm<0?"bd":"";
-    
+    var ec=r.eff>=90?"gd":(r.eff>0&&r.eff<80)?"bd":"";
+    tb.innerHTML+="<tr>"+
+      "<td style='color:var(--greydk);font-size:11px'>"+(i+1)+"</td>"+
+      "<td style='font-size:11px'>"+r.batch+"</td>"+
+      "<td><span class='"+(r.mtype==="Premium"?"bgp":"bgr")+"'>"+r.mtype+"</span></td>"+
+      "<td>"+r.name+"</td>"+
+      "<td><span style='font-size:10px;font-weight:600;padding:1px 5px;border-radius:8px;background:"+(CMAP[r.type]||"#888")+"22;color:"+(CMAP[r.type]||"#555")+"'>"+r.type+"</span></td>"+
+      "<td style='text-align:center;color:var(--greydk)'>"+r.ml+"</td>"+
+      "<td style='text-align:center'>\u20B9"+r.mrp+"</td>"+
+      "<td class='nr'>"+r.units.toLocaleString()+"</td>"+
+      "<td class='nr'>\u20B9"+inr(r.rev)+"</td>"+
+      "<td class='nr "+gc+"'>\u20B9"+inr(r.gp)+"</td>"+
+      "<td style='text-align:center;font-weight:500' class='"+gc+"'>"+r.gm.toFixed(1)+"%</td>"+
+    "</tr>";
   });
   document.getElementById("P_today").style.display=prodRows.length?"block":"none";
   var totR=prodRows.reduce(function(a,r){return a+r.rev;},0);
