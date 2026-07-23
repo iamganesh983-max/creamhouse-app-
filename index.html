@@ -745,18 +745,24 @@ div[style*="background:#FDFCF8"]{background:var(--card)!important}
     <div><div class="ph-title">Production History</div>
     <div class="ph-desc" id="H_desc">Feb&#8211;Jun 2026 &middot; 494 records + this session</div></div>
   </div>
-  <!-- History info banner -->
-  <div id="H_infoBanner" style="background:#EBF5FB;border:1.5px solid #85C1E9;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#1A5276;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-    <span>&#128203; Showing <strong id="H_totalCount">460</strong> embedded records + <strong id="H_sessionCount">0</strong> from this session &nbsp;&middot;&nbsp; New entries save to Google Sheets</span>
-    <a id="H_sheetsLink" href="#" target="_blank" style="background:#1D9E75;color:#fff;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;display:none">&#128203; View full history in Sheets</a>
+  <!-- History live banner -->
+  <div id="H_liveBanner" style="background:linear-gradient(135deg,#E0FBF0,#D0F5E4);border:1.5px solid #80E0B0;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <span style="font-size:12.5px;font-weight:600;color:#004D35">
+      <span id="H_liveStatus">&#9889; Loading from Google Sheets...</span>
+    </span>
+    <button onclick="loadHistoryFromSheets()" style="background:#00B07A;color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">&#8635; Refresh</button>
   </div>
 
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:14px;background:var(--grey);border-radius:10px;margin-bottom:14px">
     <div class="f" style="flex:1;min-width:100px"><label>Month</label>
       <select id="H_mon" onchange="renderHist()">
         <option value="0">All months</option>
-        <option value="2">February</option><option value="3">March</option>
-        <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+        <option value="1">January</option><option value="2">February</option>
+        <option value="3">March</option><option value="4">April</option>
+        <option value="5">May</option><option value="6">June</option>
+        <option value="7">July</option><option value="8">August</option>
+        <option value="9">September</option><option value="10">October</option>
+        <option value="11">November</option><option value="12">December</option>
       </select></div>
     <div class="f" style="flex:1;min-width:100px"><label>SKU Type</label>
       <select id="H_type" onchange="renderHist()">
@@ -792,8 +798,8 @@ div[style*="background:#FDFCF8"]{background:var(--card)!important}
         <th style="text-align:center">ml</th><th style="text-align:center">MRP</th>
         <th class="nr">Units</th><th class="nr">Revenue</th>
         <th class="nr">GP</th><th style="text-align:center">GM%</th><th style="text-align:center">Eff%</th>
-      </tr></thead>
-      <tbody id="H_tbody"></tbody>
+          <th style="text-align:center">&#9998;</th>
+      </tr      <tbody id="H_tbody"></tbody>
     </table>
   </div>
   <div id="H_info" style="margin-top:8px;font-size:11px;color:var(--greydk)"></div>
@@ -804,6 +810,47 @@ div[style*="background:#FDFCF8"]{background:var(--card)!important}
 
 </div>
 <div class="toast" id="TOAST"></div>
+
+<!-- EDIT ROW OVERLAY -->
+<div id="editOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:20px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div style="font-size:17px;font-weight:800;color:#1A1714">&#9998; Edit Entry</div>
+      <button onclick="closeEdit()" style="background:#F5F0E8;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer">&#215;</button>
+    </div>
+    <div style="font-size:11px;color:#9B9590;margin-bottom:16px;font-weight:600" id="editRowRef"></div>
+    <div class="g2" style="margin-bottom:12px">
+      <div class="f"><label>Batch ID</label><input type="text" id="ed_batch"></div>
+      <div class="f"><label>Flavour / Name</label><input type="text" id="ed_name"></div>
+    </div>
+    <div class="g2" style="margin-bottom:12px">
+      <div class="f"><label>SKU Type</label>
+        <select id="ed_type"><option>Cone</option><option>Cup</option><option>Bar</option><option>Kulfi</option><option>Milk Shake</option><option>Taco</option><option>Bulk</option><option>Tub</option><option>Box</option></select>
+      </div>
+      <div class="f"><label>Mix Type</label>
+        <select id="ed_mtype"><option>Regular</option><option>Premium</option></select>
+      </div>
+    </div>
+    <div class="g3" style="margin-bottom:12px">
+      <div class="f"><label>Pack (ml)</label><input type="number" id="ed_ml" min="0"></div>
+      <div class="f"><label>MRP (&#8377;)</label><input type="number" id="ed_mrp" min="0"></div>
+      <div class="f"><label>Units</label><input type="number" id="ed_units" min="0"></div>
+    </div>
+    <div style="background:#F5F0E8;border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#6B6560;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Recalculated values (auto)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12.5px">
+        <div>Revenue: <strong id="ed_rev_preview">—</strong></div>
+        <div>Gross Profit: <strong id="ed_gp_preview">—</strong></div>
+        <div>GM%: <strong id="ed_gm_preview">—</strong></div>
+        <div>Mix Cost: <strong id="ed_mixc_preview">—</strong></div>
+      </div>
+    </div>
+    <input type="hidden" id="ed_rowNum">
+    <button onclick="saveEditToSheets()" style="width:100%;background:#E8174A;color:#fff;border:none;border-radius:50px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">&#9729; Save Changes to Sheets</button>
+    <button onclick="closeEdit()" style="width:100%;background:#F5F0E8;color:#6B6560;border:1.5px solid #DDD8CE;border-radius:50px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Cancel</button>
+    <div id="editStatus" style="margin-top:12px;font-size:12.5px;text-align:center;color:#9B9590"></div>
+  </div>
+</div>
 
 <script>
 /* ================================================================
@@ -1838,13 +1885,15 @@ function updateSummary(){
 // Live data fetched from Sheets (replaces embedded HIST when available)
 var LIVE_DATA = null;
 
+var LIVE_HIST = [];  // populated from Google Sheets
+
 function getFiltered(){
   var mon=parseInt(document.getElementById("H_mon").value)||0;
   var type=sv("H_type"),mix=sv("H_mix");
   var srch=document.getElementById("H_srch").value.toLowerCase();
 
-  // Use live Sheets data if available, otherwise merge embedded HIST + session prodRows
-  var source = LIVE_DATA || buildMergedHistory();
+  // Use live Sheets data if available, otherwise fall back to embedded HIST
+  var source = LIVE_HIST.length > 0 ? LIVE_HIST : buildMergedHistory();
 
   return source.filter(function(r){
     if(mon&&r.monthNum!==mon)return false;
@@ -1995,7 +2044,7 @@ function renderHist(){
       "<td class=\"nr\">\u20B9"+inr(r.rev)+"</td>"+
       "<td class=\"nr "+gc+"\">\u20B9"+inr(r.gp)+"</td>"+
       "<td style=\"text-align:center;font-weight:500\" class=\""+gc+"\">"+r.gm.toFixed(1)+"%</td>"+
-      "<td style=\"text-align:center\" class=\""+ec+"\">"+(r.eff>0?r.eff.toFixed(0)+"%":"&#8212;")+"</td>"+
+      "<td style=\"text-align:center\" class=\""+ec+"\">"+(r.eff>0?r.eff.toFixed(0)+"%":"&#8212;")+"</td>"+"<td style=\"text-align:center\"><button onclick=\"openEdit(event,"+i+",LIVE_HIST)\" style=\"background:#F5F0E8;border:1.5px solid #DDD8CE;border-radius:8px;padding:3px 10px;font-size:11px;cursor:pointer;color:#6B6560\">&#9998;</button></td>"+
     "</tr>";
   });
   document.getElementById("H_info").textContent="Showing "+Math.min(250,rows.length)+" of "+rows.length+" records"+(rows.length>250?" - export CSV for complete data":"");
@@ -2089,9 +2138,9 @@ function sendToSheets(type, rows, callback){
   if(!url){ callback(false); return; }
   updateSyncStatus("sending");
 
-  // Trim rows to essential fields only to keep URL short
+  // Trim to essential fields
   var trimmed = rows.map(function(r){
-    if(type === "production") return {
+    return type === "production" ? {
       date:r.date, batch:r.batch, mtype:r.mtype||r.mixType,
       name:r.name, type:r.type, ml:r.ml, mrp:r.mrp,
       mix:Math.round(r.mix*100)/100, units:r.units,
@@ -2100,37 +2149,42 @@ function sendToSheets(type, rows, callback){
       pC:Math.round(r.pC), gp:Math.round(r.gp),
       gm:Math.round(r.gm*10)/10, eff:Math.round(r.eff*10)/10,
       boxes:r.boxes||0, perbox:r.perbox||0
-    };
-    return r;
+    } : r;
   });
 
-  // Send one row at a time to keep URLs short
-  var pending = trimmed.length;
-  if(pending === 0){ callback(true); return; }
+  var sent = 0;
+  function sendNext(){
+    if(sent >= trimmed.length){
+      updateSyncStatus("connected");
+      callback(true);
+      return;
+    }
+    var row = trimmed[sent++];
+    var payload = encodeURIComponent(JSON.stringify({type:type, rows:[row]}));
+    var getUrl = url + "?action=save&payload=" + payload;
 
-  var allOk = true;
-  trimmed.forEach(function(row, i){
+    // Use hidden iframe - same as typing URL in browser tab, always follows redirects
+    var iframeId = "gs_frame_" + Date.now();
+    var iframe = document.createElement("iframe");
+    iframe.id = iframeId;
+    iframe.name = iframeId;
+    iframe.style.display = "none";
+    iframe.src = getUrl;
+    document.body.appendChild(iframe);
+
     setTimeout(function(){
-      var payload = encodeURIComponent(JSON.stringify({type:type, rows:[row]}));
-      var getUrl = url + "?action=save&payload=" + payload;
+      try{document.body.removeChild(iframe);}catch(e){}
+      sendNext(); // send next row after 1.5 seconds
+    }, 1500);
+  }
 
-      var img = new Image();
-      img.onload = img.onerror = function(){
-        pending--;
-        if(pending === 0){
-          updateSyncStatus("connected");
-          callback(true);
-        }
-      };
-      img.src = getUrl;
-    }, i * 500); // stagger by 500ms each
-  });
+  sendNext();
 
-  // Fallback timeout
+  // Overall timeout
   setTimeout(function(){
     updateSyncStatus("connected");
     callback(true);
-  }, (trimmed.length * 500) + 10000);
+  }, (trimmed.length * 1500) + 5000);
 }
 
 
@@ -2208,6 +2262,135 @@ function clearSettingsURL(){
 document.addEventListener("click", function(e){
   var overlay = document.getElementById("settingsOverlay");
   if(e.target === overlay) closeSettings();
+});
+
+
+// ── EDIT HISTORY ENTRY ─────────────────────────────────────────────
+var editingRow = null;
+
+function openEdit(event, rowIndex, source){
+  var r = source[rowIndex];
+  if(!r){ toast("Row not found","err"); return; }
+  editingRow = r;
+
+  document.getElementById("editRowRef").textContent = "Editing: " + r.batch + " — " + r.name + " (Sheet row " + (r._row||"?") + ")";
+  document.getElementById("ed_batch").value  = r.batch||"";
+  document.getElementById("ed_name").value   = r.name||"";
+  document.getElementById("ed_type").value   = r.type||"Bulk";
+  document.getElementById("ed_mtype").value  = r.mixType||"Regular";
+  document.getElementById("ed_ml").value     = r.ml||"";
+  document.getElementById("ed_mrp").value    = r.mrp||"";
+  document.getElementById("ed_units").value  = r.units||"";
+  document.getElementById("ed_rowNum").value = r._row||"";
+  document.getElementById("editStatus").textContent = "";
+  document.getElementById("editOverlay").style.display = "flex";
+  updateEditPreview();
+}
+
+function updateEditPreview(){
+  var mrp   = parseFloat(document.getElementById("ed_mrp").value)||0;
+  var ml    = parseFloat(document.getElementById("ed_ml").value)||0;
+  var units = parseFloat(document.getElementById("ed_units").value)||0;
+  var mtype = document.getElementById("ed_mtype").value;
+  var stype = document.getElementById("ed_type").value;
+
+  if(!mrp || !units){ return; }
+  var dm   = mrp<=15 ? 0.30 : 0.40;
+  var dlrP = mrp*(1-dm);
+  var rev  = units*dlrP;
+  var rate = mtype==="Premium" ? PREM : REG;
+  var mixKg = editingRow ? (editingRow.mix||0) : 0;
+  var mixC = mixKg*1000*rate;
+  var pC   = units*pCost(stype,ml);
+  var gp   = rev-mixC-pC;
+  var gm   = rev>0?(gp/rev*100):0;
+
+  document.getElementById("ed_rev_preview").textContent  = "₹"+inr(rev);
+  document.getElementById("ed_gp_preview").textContent   = "₹"+inr(gp);
+  document.getElementById("ed_gm_preview").textContent   = gm.toFixed(1)+"%";
+  document.getElementById("ed_mixc_preview").textContent = "₹"+inr(mixC);
+}
+
+// Attach live preview listeners
+["ed_mrp","ed_ml","ed_units","ed_mtype","ed_type"].forEach(function(id){
+  var el = document.getElementById(id);
+  if(el) el.addEventListener("input", updateEditPreview);
+});
+
+function closeEdit(){
+  document.getElementById("editOverlay").style.display = "none";
+  editingRow = null;
+}
+
+function saveEditToSheets(){
+  var rowNum = document.getElementById("ed_rowNum").value;
+  if(!rowNum){ toast("Row number missing","err"); return; }
+
+  var mrp   = parseFloat(document.getElementById("ed_mrp").value)||0;
+  var ml    = parseFloat(document.getElementById("ed_ml").value)||0;
+  var units = parseFloat(document.getElementById("ed_units").value)||0;
+  var mtype = document.getElementById("ed_mtype").value;
+  var stype = document.getElementById("ed_type").value;
+  var batch = document.getElementById("ed_batch").value.trim();
+  var name  = document.getElementById("ed_name").value.trim();
+
+  var dm   = mrp<=15?0.30:0.40;
+  var dlrP = mrp*(1-dm);
+  var rev  = units*dlrP;
+  var rate = mtype==="Premium"?PREM:REG;
+  var mixKg= editingRow?(editingRow.mix||0):0;
+  var mixC = mixKg*1000*rate;
+  var pC   = units*pCost(stype,ml);
+  var gp   = rev-mixC-pC;
+  var gm   = rev>0?(gp/rev*100):0;
+
+  var editData = {
+    rowNum: parseInt(rowNum),
+    batch: batch, name: name, type: stype, mtype: mtype,
+    ml: ml, mrp: mrp, units: units,
+    dlrP: Math.round(dlrP*100)/100,
+    rev: Math.round(rev), mixC: Math.round(mixC),
+    pC: Math.round(pC), gp: Math.round(gp),
+    gm: Math.round(gm*10)/10
+  };
+
+  var statusEl = document.getElementById("editStatus");
+  statusEl.textContent = "Saving...";
+  statusEl.style.color = "#F5920A";
+
+  var url = getSheetURL();
+  var payload = encodeURIComponent(JSON.stringify({type:"edit", row:editData}));
+  var getUrl = url + "?action=save&payload=" + payload;
+
+  var iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.src = getUrl;
+  document.body.appendChild(iframe);
+
+  setTimeout(function(){
+    try{document.body.removeChild(iframe);}catch(e){}
+    statusEl.textContent = "✓ Saved! Refreshing history...";
+    statusEl.style.color = "#00B07A";
+    // Update local LIVE_HIST immediately
+    if(LIVE_HIST.length > 0){
+      var idx = LIVE_HIST.findIndex ? LIVE_HIST.findIndex(function(r){ return r._row==parseInt(rowNum); }) :
+        (function(){ for(var i=0;i<LIVE_HIST.length;i++){ if(LIVE_HIST[i]._row==parseInt(rowNum)) return i; } return -1; })();
+      if(idx >= 0){
+        LIVE_HIST[idx] = Object.assign({}, LIVE_HIST[idx], editData, {
+          mixType: mtype, rev: rev, mixC: mixC, pC: pC, gp: gp, gm: gm,
+          monthNum: LIVE_HIST[idx].monthNum
+        });
+      }
+    }
+    renderHist();
+    setTimeout(closeEdit, 1500);
+    toast("Entry updated in Google Sheets","ok");
+  }, 2000);
+}
+
+// Close edit on overlay background click
+document.getElementById("editOverlay").addEventListener("click", function(e){
+  if(e.target === this) closeEdit();
 });
 
 if ("serviceWorker" in navigator) {
