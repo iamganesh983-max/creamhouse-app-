@@ -1033,10 +1033,8 @@ function toggleSharedMode(){
 
   if (on) {
     // Switching TO shared mode — clear single-SKU fields to avoid confusion
-    ["P_name","P_mix","P_units","P_boxes","P_perbox",
-     "P_tname1","P_tkg1","P_tval1",
-     "P_tname2","P_tkg2","P_tval2",
-     "P_tname3","P_tkg3","P_tval3"].forEach(function(id){
+    // Clear single-SKU specific fields but KEEP toppings (shared across modes)
+    ["P_name","P_mix","P_units","P_boxes","P_perbox"].forEach(function(id){
       document.getElementById(id).value = "";
     });
     ["P_ml","P_mrp","P_stype"].forEach(function(id){
