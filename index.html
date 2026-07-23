@@ -1284,6 +1284,8 @@ function updateSharedCalc(){
 
   var totRev=0, totMixC=0, totPackC=0;
 
+  var totalTopCForCalc = (fv("P_tval1")||0) + (fv("P_tval2")||0) + (fv("P_tval3")||0);
+
   sharedOutputRows.forEach(function(r){
     var ml    = parseFloat(r.ml)||0;
     var mrp   = parseFloat(r.mrp)||0;
@@ -1294,7 +1296,9 @@ function updateSharedCalc(){
       return s+((parseFloat(x.ml)||0)*(parseFloat(x.units)||0));
     },0);
     var rowOut   = ml*units;
-    var allocMix = totalOut>0 ? totalMix*(rowOut/totalOut) : 0;
+    var allocFrac = totalOut>0 ? rowOut/totalOut : 0;
+    var allocMix = totalMix * allocFrac;
+    var allocTopC = totalTopCForCalc * allocFrac;
 
     var dm    = mrp<=15 ? 0.30 : 0.40;
     var dlrP  = mrp*(1-dm);
@@ -1304,7 +1308,7 @@ function updateSharedCalc(){
 
     totRev   += rev;
     totMixC  += mixC;
-    totPackC += packC;
+    totPackC += packC + allocTopC;
   });
 
   var totGP = totRev - totMixC - totPackC;
@@ -1359,6 +1363,13 @@ function addSharedBatchRows(){
 
   if (totalOutMl <= 0){ toast("Output volume is zero - check units entered","err"); return; }
 
+  // Read toppings from the shared topping fields (shared across all products in batch)
+  var tname1=sv("P_tname1"), tkg1=fv("P_tkg1"), tval1=fv("P_tval1");
+  var tname2=sv("P_tname2"), tkg2=fv("P_tkg2"), tval2=fv("P_tval2");
+  var tname3=sv("P_tname3"), tkg3=fv("P_tkg3"), tval3=fv("P_tval3");
+  var totalTopC = tval1 + tval2 + tval3;
+  var totalTopKg = tkg1 + tkg2 + tkg3;
+
   var addedCount = 0;
   validRows.forEach(function(r){
     var ml = parseFloat(r.ml), mrp = parseFloat(r.mrp), units = parseFloat(r.units);
@@ -1366,13 +1377,17 @@ function addSharedBatchRows(){
     var allocFrac  = rowOutMl / totalOutMl;
     var allocMixKg = totalMix * allocFrac;
 
+    // Allocate topping cost proportionally by output volume
+    var allocTopC  = totalTopC  * allocFrac;
+    var allocTopKg = totalTopKg * allocFrac;
+
     var dm    = mrp<=15 ? 0.30 : 0.40;
     var dlrP  = mrp*(1-dm);
     var rev   = units*dlrP;
     var rate  = mtype==="Premium" ? PREM : REG;
     var mixC  = allocMixKg*1000*rate;
     var pC    = units*pCost(r.stype, ml);
-    var gp    = rev-mixC-pC;
+    var gp    = rev-mixC-pC-allocTopC;
     var gm    = rev>0 ? (gp/rev*100) : 0;
     var expO  = allocMixKg>0 ? (allocMixKg*1000/FILL) : 0;
     var actO  = rowOutMl;
@@ -1380,7 +1395,12 @@ function addSharedBatchRows(){
 
     prodRows.push({
       date:date, batch:batch, mtype:mtype, type:r.stype, name:r.name,
-      ml:ml, mrp:mrp, mix:allocMixKg, top:0, boxes:parseFloat(r.boxes)||0, perbox:0,
+      ml:ml, mrp:mrp, mix:allocMixKg,
+      topKg:allocTopKg, topC:allocTopC,
+      tname1:tname1, tkg1:Math.round(tkg1*allocFrac*1000)/1000, tval1:Math.round(tval1*allocFrac),
+      tname2:tname2, tkg2:Math.round(tkg2*allocFrac*1000)/1000, tval2:Math.round(tval2*allocFrac),
+      tname3:tname3, tkg3:Math.round(tkg3*allocFrac*1000)/1000, tval3:Math.round(tval3*allocFrac),
+      boxes:parseFloat(r.boxes)||0, perbox:parseFloat(r.perbox)||0,
       units:units, dlrP:dlrP, rev:rev, mixC:mixC, pC:pC, gp:gp, gm:gm, eff:eff,
       sharedBatch:true, sharedTotalMix:totalMix
     });
