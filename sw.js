@@ -1,4 +1,4 @@
-var CACHE = "ch-v9";
+var CACHE = "ch-v12";
 var FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function(e){
