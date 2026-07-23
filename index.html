@@ -2067,7 +2067,7 @@ function renderHist(){
     var ec=r.eff>=90?"gd":(r.eff>0&&r.eff<80)?"bd":"";
     tb.innerHTML+="<tr>"+
       "<td style=\"color:var(--greydk);font-size:11px;white-space:nowrap\">"+(i+1)+
-      " <button onclick=\"openEdit(event,"+i+",LIVE_HIST)\" title=\"Edit\" style=\"background:var(--brand);border:none;border-radius:6px;padding:2px 7px;font-size:11px;cursor:pointer;color:#fff;font-weight:700\">&#9998;</button></td>"+
+      " <button onclick=\"openEditByRow("+r._row+")\" title=\"Edit\" style=\"background:var(--brand);border:none;border-radius:6px;padding:2px 7px;font-size:11px;cursor:pointer;color:#fff;font-weight:700\">&#9998;</button></td>"+
       "<td style=\"font-size:11px\">"+r.batch+"</td>"+
       "<td><span class=\""+(r.mixType==="Premium"?"bgp":"bgr")+"\">"+r.mixType+"</span></td>"+
       "<td>"+r.name+"</td>"+
@@ -2301,12 +2301,32 @@ document.addEventListener("click", function(e){
 // ── EDIT HISTORY ENTRY ─────────────────────────────────────────────
 var editingRow = null;
 
-function openEdit(event, rowIndex, source){
-  var r = source[rowIndex];
+function openEditByRow(rowNum){
+  // Find the row in LIVE_HIST by sheet row number
+  var r = null;
+  for(var i=0; i<LIVE_HIST.length; i++){
+    if(LIVE_HIST[i]._row === rowNum){ r = LIVE_HIST[i]; break; }
+  }
+  // Fallback: search embedded HIST
+  if(!r){
+    var merged = buildMergedHistory();
+    for(var j=0; j<merged.length; j++){
+      if(merged[j]._row === rowNum){ r = merged[j]; break; }
+    }
+  }
   if(!r){ toast("Row not found","err"); return; }
-  editingRow = r;
+  openEditRow(r);
+}
 
-  document.getElementById("editRowRef").textContent = "Editing: " + r.batch + " — " + r.name + " (Sheet row " + (r._row||"?") + ")";
+function openEdit(event, rowIndex, source){
+  var r = source ? source[rowIndex] : null;
+  if(!r){ toast("Row not found","err"); return; }
+  openEditRow(r);
+}
+
+function openEditRow(r){
+  editingRow = r;
+  document.getElementById("editRowRef").textContent = "Editing: " + r.batch + " - " + r.name + " (Sheet row " + (r._row||"?") + ")";
   document.getElementById("ed_batch").value  = r.batch||"";
   document.getElementById("ed_name").value   = r.name||"";
   document.getElementById("ed_type").value   = r.type||"Bulk";
