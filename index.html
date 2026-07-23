@@ -1943,41 +1943,46 @@ function loadHistoryFromSheets(){
   }
   if(statusEl) statusEl.innerHTML = "&#9889; Loading all records from Google Sheets...";
 
-  var getUrl = url + "?action=getHistory";
-  fetch(getUrl)
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if(data.success && data.rows && data.rows.length > 0){
-        LIVE_HIST = data.rows.map(function(r){
-          return {
-            _row:    r._row||0,
-            date:    r.date||"",    batch:   r.batch||"",
-            mixType: r.mixType||"", name:    r.name||"",
-            type:    r.type||"",    ml:      parseFloat(r.ml)||0,
-            mrp:     parseFloat(r.mrp)||0,   mix:  parseFloat(r.mix)||0,
-            topping: parseFloat(r.topping)||0, units: parseFloat(r.units)||0,
-            dlrP:    parseFloat(r.dlrP)||0,  rev:  parseFloat(r.rev)||0,
-            mixC:    parseFloat(r.mixC)||0,  pC:   parseFloat(r.pC)||0,
-            topC:    parseFloat(r.topC)||0,  gp:   parseFloat(r.gp)||0,
-            gm:      parseFloat(r.gm)||0,    eff:  parseFloat(r.eff)||0,
-            expO:    parseFloat(r.expO)||0,  actO: parseFloat(r.actO)||0,
-            monthNum: parseFloat(r.monthNum)||getMonthNum(r.batch||"")
-          };
-        });
-        if(statusEl) statusEl.innerHTML = "&#128994; Live — "+LIVE_HIST.length+" records from Google Sheets";
-        renderHist();
-        toast("Loaded "+LIVE_HIST.length+" records","ok");
-      } else {
-        if(statusEl) statusEl.innerHTML = "&#128203; Showing embedded records ("+buildMergedHistory().length+" total)";
-        LIVE_HIST = [];
-        renderHist();
-      }
-    })
-    .catch(function(){
-      if(statusEl) statusEl.innerHTML = "&#128203; Showing embedded records — refresh to retry";
-      LIVE_HIST = [];
+  // Use JSONP - works cross-origin, follows Google redirects
+  var cbName = "ghCb" + Date.now();
+  window[cbName] = function(data){
+    delete window[cbName];
+    var s = document.getElementById(cbName);
+    if(s) s.parentNode.removeChild(s);
+    if(data && data.success && data.rows && data.rows.length > 0){
+      LIVE_HIST = data.rows.map(function(r){
+        return {
+          _row: r._row||0, date: r.date||"", batch: r.batch||"",
+          mixType: r.mixType||"", name: r.name||"", type: r.type||"",
+          ml: parseFloat(r.ml)||0, mrp: parseFloat(r.mrp)||0,
+          mix: parseFloat(r.mix)||0, units: parseFloat(r.units)||0,
+          dlrP: parseFloat(r.dlrP)||0, rev: parseFloat(r.rev)||0,
+          mixC: parseFloat(r.mixC)||0, pC: parseFloat(r.pC)||0,
+          gp: parseFloat(r.gp)||0, gm: parseFloat(r.gm)||0,
+          eff: parseFloat(r.eff)||0, expO: parseFloat(r.expO)||0,
+          actO: parseFloat(r.actO)||0, topping: parseFloat(r.topping)||0,
+          monthNum: parseFloat(r.monthNum)||getMonthNum(r.batch||"")
+        };
+      });
+      if(statusEl) statusEl.innerHTML = "&#128994; Live - "+LIVE_HIST.length+" records from Google Sheets";
       renderHist();
-    });
+      toast("Loaded "+LIVE_HIST.length+" records","ok");
+    } else {
+      if(statusEl) statusEl.innerHTML = "&#128203; Showing embedded records";
+      LIVE_HIST = []; renderHist();
+    }
+  };
+  setTimeout(function(){
+    if(window[cbName]){
+      delete window[cbName];
+      if(statusEl) statusEl.innerHTML = "&#128203; Showing embedded records - tap Refresh to retry";
+      LIVE_HIST = []; renderHist();
+    }
+  }, 12000);
+  var sc = document.createElement("script");
+  sc.id = cbName;
+  sc.src = url + "?action=getHistory&callback=" + cbName;
+  document.head.appendChild(sc);
 }
 
 function refreshHistFromSheets(){
