@@ -1445,17 +1445,19 @@ function clearSharedBatchForm(){
 function liveCalc(){
   var mix=fv("P_mix"),units=iv("P_units"),mrp=fv("P_mrp"),ml=fv("P_ml");
   var type=sv("P_stype"),mtype=sv("P_mtype");
-  if(!mrp||!ml)return;
-  var dm=mrp<=15?0.30:0.40,dlrP=mrp*(1-dm),rev=units*dlrP;
-  var rate=mtype==="Premium"?PREM:REG,mixC=mix*1000*rate,pC=units*pCost(type,ml);
+
+  // Always update topping display regardless of MRP/ML
   var topC=(fv("P_tval1")||0)+(fv("P_tval2")||0)+(fv("P_tval3")||0);
   var topKg=(fv("P_tkg1")||0)+(fv("P_tkg2")||0)+(fv("P_tkg3")||0);
-  var gp=rev-mixC-pC-topC,gm=rev>0?(gp/rev*100):0;
-  // Update topping display
   var tcEl=document.getElementById("C_topcost");
   var tkEl=document.getElementById("C_topkg");
   if(tcEl) tcEl.textContent="₹"+inr(topC);
   if(tkEl) tkEl.textContent=topKg.toFixed(3)+" kg";
+
+  if(!mrp||!ml)return;
+  var dm=mrp<=15?0.30:0.40,dlrP=mrp*(1-dm),rev=units*dlrP;
+  var rate=mtype==="Premium"?PREM:REG,mixC=mix*1000*rate,pC=units*pCost(type,ml);
+  var gp=rev-mixC-pC-topC,gm=rev>0?(gp/rev*100):0;
   var expO=mix>0?(mix*1000/FILL):0,actO=units*ml,eff=expO>0?(actO/expO*100):0;
   document.getElementById("C_dlr").textContent="\u20B9"+dlrP.toFixed(2);
   document.getElementById("C_rev").textContent="\u20B9"+inr(rev);
