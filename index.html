@@ -748,7 +748,7 @@ div[style*="background:#FDFCF8"]{background:var(--card)!important}
   <!-- History live banner -->
   <div id="H_liveBanner" style="background:linear-gradient(135deg,#E0FBF0,#D0F5E4);border:1.5px solid #80E0B0;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <span style="font-size:12.5px;font-weight:600;color:#004D35">
-      <span id="H_liveStatus">&#9889; Loading from Google Sheets...</span>
+      <span id="H_liveStatus">&#9889; Loading all records from Google Sheets...</span>
     </span>
     <button onclick="loadHistoryFromSheets()" style="background:#00B07A;color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">&#8635; Refresh</button>
   </div>
@@ -913,7 +913,10 @@ function showTab(name){
   panels.forEach(function(p){p.classList.remove("on");});
   document.getElementById("T_"+name).classList.add("on");
   if(name==="today")updateSummary();
-  if(name==="hist")refreshHistFromSheets();
+  if(name==="hist"){
+    // Always load fresh from Sheets
+    setTimeout(function(){ loadHistoryFromSheets(); }, 100);
+  }
 }
 
 // HELPERS
@@ -2033,6 +2036,7 @@ function renderHist(){
     var gc=r.gm>=30?"gd":r.gm<0?"bd":"";
     var ec=r.eff>=90?"gd":(r.eff>0&&r.eff<80)?"bd":"";
     tb.innerHTML+="<tr>"+
+      "<td style=\"text-align:center\"><button onclick=\"openEdit(event,"+i+",LIVE_HIST)\" style=\"background:var(--brand-lt);border:1.5px solid var(--brand);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--brand);font-weight:700\">&#9998;</button></td>"+
       "<td style=\"color:var(--greydk);font-size:11px\">"+(i+1)+"</td>"+
       "<td style=\"font-size:11px\">"+r.batch+"</td>"+
       "<td><span class=\""+(r.mixType==="Premium"?"bgp":"bgr")+"\">"+r.mixType+"</span></td>"+
@@ -2044,8 +2048,7 @@ function renderHist(){
       "<td class=\"nr\">\u20B9"+inr(r.rev)+"</td>"+
       "<td class=\"nr "+gc+"\">\u20B9"+inr(r.gp)+"</td>"+
       "<td style=\"text-align:center;font-weight:500\" class=\""+gc+"\">"+r.gm.toFixed(1)+"%</td>"+
-      "<td style=\"text-align:center\" class=\""+ec+"\">"+(r.eff>0?r.eff.toFixed(0)+"%":"&#8212;")+"</td>"+"<td style=\"text-align:center\"><button onclick=\"openEdit(event,"+i+",LIVE_HIST)\" style=\"background:#F5F0E8;border:1.5px solid #DDD8CE;border-radius:8px;padding:3px 10px;font-size:11px;cursor:pointer;color:#6B6560\">&#9998;</button></td>"+
-    "</tr>";
+      "<td style=\"text-align:center\" class=\""+ec+"\">"+(r.eff>0?r.eff.toFixed(0)+"%":"&#8212;")+"</td>"+"</tr>";
   });
   document.getElementById("H_info").textContent="Showing "+Math.min(250,rows.length)+" of "+rows.length+" records"+(rows.length>250?" - export CSV for complete data":"");
 }
