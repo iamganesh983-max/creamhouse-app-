@@ -1,5 +1,5 @@
 // Cache version - increment this to force all clients to update
-var CACHE = "ch-v20";
+var CACHE = "ch-v23";
 var FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function(e){
